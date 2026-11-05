@@ -1,0 +1,14 @@
+{
+  "crons": [
+    {
+      "path": "/api/send-event-reminders",
+      "schedule": "0 3 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
