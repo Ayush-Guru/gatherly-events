@@ -1,0 +1,12 @@
+{
+  "name": "Gatherly Events",
+  "short_name": "Gatherly",
+  "description": "Discover and register for events worth showing up for.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ed",
+  "theme_color": "#10201d",
+  "icons": [
+    { "src": "/assets/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

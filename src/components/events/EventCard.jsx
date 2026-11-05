@@ -1,0 +1,15 @@
+import { CalendarDays, Heart, MapPin, ArrowUpRight, Star, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useApp } from '../../context/AppContext';
+import Badge from '../ui/Badge';
+
+const formatDate = (date) => new Intl.DateTimeFormat('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(date));
+
+export default function EventCard({ event, onDetails }) {
+  const { savedIds, toggleSaved } = useApp();
+  const saved = savedIds.includes(event.id);
+  return <article className="event-card group overflow-hidden rounded-[24px] border border-ink/10 bg-white/60 shadow-soft transition duration-300 hover:-translate-y-1.5 hover:shadow-lift dark:border-cream/10 dark:bg-cream/[.06]">
+    <div className="relative aspect-[1.26] overflow-hidden bg-mist dark:bg-ink"><img src={event.image} alt={event.title} className="event-image h-full w-full object-cover" loading="lazy" /><div className="absolute inset-0 bg-gradient-to-t from-ink/55 via-transparent to-transparent" /><div className="absolute left-4 top-4 flex gap-2"><Badge color={event.featured ? 'lime' : 'dark'}>{event.featured ? 'Featured' : event.category}</Badge>{event.type === 'Hybrid' && <Badge color="coral">Hybrid</Badge>}</div><button type="button" className={`absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full backdrop-blur-md transition ${saved ? 'bg-coral text-white' : 'bg-white/75 text-ink hover:bg-citrus'}`} onClick={() => toggleSaved(event.id)} aria-label={saved ? `Remove ${event.title} from saved events` : `Save ${event.title}`}><Heart size={16} fill={saved ? 'currentColor' : 'none'} /></button><div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white"><div><p className="text-[10px] font-bold uppercase tracking-[.14em] text-citrus">{formatDate(event.date)}</p><h3 className="mt-1 max-w-[240px] font-display text-xl font-semibold leading-tight tracking-[-.05em]">{event.title}</h3></div><button type="button" onClick={() => onDetails?.(event)} className="grid h-10 w-10 place-items-center rounded-full bg-white/90 text-ink transition hover:rotate-45 hover:bg-citrus" aria-label={`Quick view ${event.title}`}><ArrowUpRight size={18} /></button></div></div>
+    <div className="p-5"><div className="flex items-center justify-between gap-3 text-[11px] text-ink/55 dark:text-cream/55"><span className="flex items-center gap-1.5"><MapPin size={13} className="text-coral" />{event.city}</span><span className="flex items-center gap-1.5"><Star size={13} className="fill-[#f4b942] text-[#f4b942]" />{event.rating}</span></div><p className="mt-3 line-clamp-2 text-sm leading-6 text-ink/60 dark:text-cream/60">{event.description}</p><div className="mt-5 flex items-center justify-between border-t border-ink/10 pt-4 dark:border-cream/10"><span className="flex items-center gap-1.5 text-[11px] font-medium text-ink/50 dark:text-cream/50"><Users size={14} /> {event.attendees} joined</span><Link to={`/events/${event.id}`} className="flex items-center gap-1 text-xs font-bold text-coral hover:underline">View details <ArrowUpRight size={13} /></Link></div></div>
+  </article>;
+}
