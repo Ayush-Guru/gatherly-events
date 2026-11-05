@@ -7,7 +7,9 @@ import EventPage from './pages/EventPage';
 import DashboardPage from './pages/DashboardPage';
 import OrganizerPage from './pages/OrganizerPage';
 import NotFoundPage from './pages/NotFoundPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import HostEventPage from './pages/HostEventPage';
 
 export default function App() {
-  return <div className="min-h-screen bg-cream text-ink transition-colors dark:bg-ink dark:text-cream"><Navbar /><Routes><Route path="/" element={<HomePage />} /><Route path="/explore" element={<ExplorePage />} /><Route path="/events/:id" element={<EventPage />} /><Route path="/dashboard" element={<DashboardPage />} /><Route path="/organizer" element={<OrganizerPage />} /><Route path="*" element={<NotFoundPage />} /></Routes><Footer /></div>;
+  return <div className="min-h-screen bg-cream text-ink transition-colors dark:bg-ink dark:text-cream"><Navbar /><Routes><Route path="/" element={<HomePage />} /><Route path="/explore" element={<ExplorePage />} /><Route path="/events/:id" element={<EventPage />} /><Route path="/dashboard" element={<DashboardPage />} /><Route path="/host" element={<HostEventPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/organizer" element={<OrganizerPage />} /><Route path="*" element={<NotFoundPage />} /></Routes><Footer /></div>;
 }

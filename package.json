@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "latest",
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",
     "qrcode.react": "latest",
@@ -16,10 +18,10 @@
     "react-dom": "latest",
     "react-hot-toast": "latest",
     "react-router-dom": "latest",
-    "@supabase/supabase-js": "latest",
     "vite": "latest"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.15",
     "autoprefixer": "latest",
     "postcss": "latest",
     "tailwindcss": "^3.4.17"
