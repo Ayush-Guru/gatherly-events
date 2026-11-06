@@ -9,7 +9,7 @@ Gatherly is a responsive event management website built with React, Vite, Tailwi
 - Event detail pages with gallery, agenda, speakers, ratings, and directions
 - Dark/light mode and English/Hindi toggle
 - Saved events with LocalStorage/Supabase sync
-- UPI QR payment using `7587704110@fam`
+- UPI QR payment using the configured `VITE_UPI_ID` (no hard-coded fallback)
 - UTR/transaction ID submission
 - Pending → Confirmed/Rejected approval workflow
 - Organizer email notification for new payment requests
@@ -52,7 +52,7 @@ Open **http://localhost:5173**.
 update public.profiles set role = 'organizer' where id = 'YOUR-AUTH-USER-ID';
 ```
 
-If you already ran an older schema, run [`supabase/migration_manual_payments.sql`](supabase/migration_manual_payments.sql) if needed, then run **[`supabase/migration_security_and_registrations.sql`](supabase/migration_security_and_registrations.sql)**. This security migration is required before accepting payments on an existing installation. New installations get the same rules from `schema.sql`. For existing installations also run [`supabase/migration_event_host_requests.sql`](supabase/migration_event_host_requests.sql), then [`supabase/migration_operations.sql`](supabase/migration_operations.sql). Run these in order **before deploying** the updated frontend. Fresh installs already include all three in `schema.sql`.
+If you already ran an older schema, run [`supabase/migration_manual_payments.sql`](supabase/migration_manual_payments.sql) if needed, then run **[`supabase/migration_security_and_registrations.sql`](supabase/migration_security_and_registrations.sql)**. This security migration is required before accepting payments on an existing installation. New installations get the same rules from `schema.sql`. For existing installations also run [`supabase/migration_event_host_requests.sql`](supabase/migration_event_host_requests.sql), then [`supabase/migration_operations.sql`](supabase/migration_operations.sql). Run these in order **before deploying** the updated frontend. Then apply [`supabase/migration_payment_holds.sql`](supabase/migration_payment_holds.sql) for the new booking flow. Fresh installs already include these migrations in `schema.sql`. **Coordinate rollout carefully**: back up the database and test on a separate project, then apply the migration and deploy the matching frontend. Existing pending bookings and old clients remain supported, but old browser tabs do not use seat holds and can still take payment before discovering a sellout. Pause payments during rollout and ask users to refresh; test before accepting payments.
 
 ### 2. Environment variables
 
@@ -60,7 +60,7 @@ If you already ran an older schema, run [`supabase/migration_manual_payments.sql
 cp .env.example .env.local
 ```
 
-Add the Supabase values and keep these payment details:
+Add the Supabase values and set your actual payment details (examples only; do not use a placeholder in production):
 
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -113,21 +113,18 @@ A signed-in user selects **Host an event**, submits their contact and event deta
 
 ### 5. User flow
 
-1. User signs in, opens an event and clicks **Reserve your seat**. Payment is disabled when Supabase is not configured or the user is not signed in.
-2. User checks availability, scans the UPI QR and pays the displayed amount. Free bookings require no UTR.
-3. User enters name, email, phone, attendees, and UTR.
-4. The registration is stored as **Pending**, holding the requested seats until reviewed or cancelled. The seat is not held while the user pays, so another person can take the last seat first. If that happens, contact the organizer with the UTR for a manual refund.
-5. Organizer receives an email at `ayushguru16@gmail.com`.
-6. Organizer opens **Organizer studio** and selects **Accept payment** or **Reject**.
-7. User receives an email and sees the updated status in **My Gatherly**.
-8. Accepted users receive an active QR ticket.
+1. The signed-in user enters details and selects a pass. For a paid event, a database transaction calculates the amount and creates a 15-minute seat hold before displaying the configured UPI QR. Free events are submitted without payment.
+2. The user pays and submits the UTR before the hold expires. The UTR is manually checked by an organizer; the request remains pending until reviewed.
+3. An expired or released hold does not reserve a seat. A user who already paid can submit the UTR from the reservation or **My Gatherly**; it is recorded as cancelled with refund review. Contact the organizer; no refund is automatic. Do not pay after expiry.
+4. An organizer verifies the payment and accepts or rejects the request. Confirmed users can see their QR ticket in **My Gatherly**. Submitted pending requests still hold seats until reviewed or cancelled.
+5. Events with booking history cannot be deleted, protecting registrations and late-payment recovery records.
 
 ## Important security notes
 
-- UPI payments are manually verified through the UTR.
+- UPI payments are manually verified through the UTR; the QR is not a payment gateway and does not verify or settle transactions. Never publish with an unverified UPI ID.
 - The app does not automatically verify bank payment status. An authorized organizer must verify the UTR manually. Refunds are not automatic: cancellation/rejection enters manual review and the organizer must transfer any eligible refund outside the app before marking it complete.
 - Ticket check-in requires organizer access and is one-time per booking (including every attendee on that booking). Camera QR scanning requires HTTPS, camera permission and browser BarcodeDetector support; manual reference entry is available as a fallback. QR codes are bearer tokens: anyone with a copy can present one, so organizers should check identity when needed.
-- Pending requests hold capacity indefinitely until approved, rejected or cancelled. Review them promptly.
+- Submitted payment requests and free requests hold capacity indefinitely until approved, rejected or cancelled. Unpaid holds expire after 15 minutes (or event start, whichever comes first), without requiring cron. The database clock is authoritative. A hold is not a payment or ticket confirmation; UPI verification and refunds remain manual.
 - The daily Vercel cron in `vercel.json` runs at 03:00 UTC, emails confirmed attendees for events within 48 hours, and processes at most 100 per run. Configure `CRON_SECRET` and the server email variables; monitor cron failures. For higher volume or guaranteed delivery, use a durable job queue. Failed reminder sends can retry on the next run while the event is still upcoming.
 - In local mode without Supabase, event browsing works but registrations, payments, and organizer tools are disabled.
 - Email notifications use the stored registration and require a valid session; organizer status emails additionally require an organizer role. Delivery errors are shown but do not undo an already-saved registration or review.
@@ -146,3 +143,5 @@ node --check api/send-registration-status-email.js
 ```
 
 Automated email tests use mocked Supabase and email providers; the SQL tests use an embedded Postgres with stubbed Supabase auth/storage. Test the SQL migration, authentication, payment review, and email delivery against a separate Supabase project and a verified email domain before production use.
+
+To test concurrent last-seat reservations against a **disposable local PostgreSQL** cluster, set `GATHERLY_TEST_PG_SOCKET` to its Unix socket directory under `/tmp` and optionally set `GATHERLY_TEST_PG_PORT`, then run `npm test`. The test creates and drops a randomly named database and creates test roles on that cluster; never point it at a shared or production database. Without the socket variable it is skipped. This is still not a Supabase integration test.

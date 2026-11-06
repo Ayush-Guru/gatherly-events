@@ -37,7 +37,7 @@ export default function OrganizerPage() {
     } catch (err) { toast.error(err.message || 'Image upload failed.'); }
     finally { setUploading(false); }
   };
-  const pending = registrations.filter((registration) => registration.status === 'Pending');
+  const pending = registrations.filter((registration) => registration.status === 'Pending' && registration.transaction_id !== 'AWAITING-UPI');
   const openCreate = () => { setForm(emptyEvent); setEditing('new'); };
   const openEdit = (event) => { setForm({ ...event, date: localDateTime(event.date), endDate: localDateTime(event.endDate) }); setEditing(event.id); };
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));

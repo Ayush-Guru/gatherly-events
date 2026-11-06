@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
 export function useAvailability(eventId, enabled = true) {
+  const [version, setVersion] = useState(0);
+  const refresh = useCallback(() => setVersion((current) => current + 1), []);
   const [remaining, setRemaining] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(Boolean(supabase && enabled));
@@ -15,6 +17,6 @@ export function useAvailability(eventId, enabled = true) {
       setLoading(false);
     }).catch(() => { if (active) { setError('Could not check remaining seats.'); setLoading(false); } });
     return () => { active = false; };
-  }, [eventId, enabled]);
-  return { remaining, error, loading };
+  }, [eventId, enabled, version]);
+  return { remaining, error, loading, refresh };
 }

@@ -61,15 +61,21 @@ export function AppProvider({ children }) {
   };
   const register = async (details) => {
     if (!supabase || !user) return { error: 'Sign in before registering for an event.' };
-    const duplicate = registrations.find((item) => item.user_id === user.id && item.eventId === details.eventId && ['Pending', 'Confirmed'].includes(item.status));
-    if (duplicate) return { error: 'You already have an active registration for this event.' };
     const event = events.find((item) => item.id === details.eventId);
-    const id = `GTH-${crypto.randomUUID()}`;
-    const { data, error } = await supabase.from('registrations').insert({ id, user_id: user.id, event_id: details.eventId, name: details.name, email: details.email, phone: details.phone, attendees: Number(details.attendees), ticket: details.ticket, total: details.total, transaction_id: details.transactionId, status: 'Pending', payment_status: 'manual_pending' }).select().single();
-    if (error) return { error: error.code === '23505' ? 'You already have an active registration for this event.' : error.message };
+    const { data, error } = await supabase.rpc('create_booking_hold', { p_event_id: details.eventId, p_name: details.name, p_email: details.email, p_phone: details.phone, p_attendees: Number(details.attendees), p_ticket: details.ticket }).single();
+    if (error) return { error: error.message };
     const registration = { ...normalizeRegistration(data), eventTitle: event?.title || 'Gatherly event' };
-    setRegistrations((current) => [registration, ...current]);
+    setRegistrations((current) => [registration, ...current.filter((item) => item.id !== registration.id)]);
     return { registration };
+  };
+  const submitPaymentReference = async (id, transactionId) => {
+    if (!supabase || !user) throw new Error('Sign in before submitting a payment reference.');
+    const { data, error } = await supabase.rpc('submit_upi_reference', { p_registration_id: id, p_utr: transactionId }).single();
+    if (error) throw new Error(error.message);
+    const eventTitle = events.find((item) => item.id === data.event_id)?.title || 'Gatherly event';
+    const registration = { ...normalizeRegistration(data), eventTitle };
+    setRegistrations((current) => [registration, ...current.filter((item) => item.id !== id)]);
+    return registration;
   };
   const reviewRegistration = async (id, status, paymentStatus) => {
     if (!supabase || !user || !isOrganizer) throw new Error('Organizer access required.');
@@ -122,7 +128,7 @@ export function AppProvider({ children }) {
     setEvents((current) => current.filter((item) => item.id !== id));
   };
   const switchLanguage = () => { const next = language === 'en' ? 'hi' : 'en'; setLanguage(next); localStorage.setItem('gatherly-language', next); };
-  const value = useMemo(() => ({ events, eventsLoading, eventsError, loadEvents, registrationsError, savedIds, registrations, reviews, rateEvent, updateRegistrationLocally, markNotificationSent, language, toggleSaved, register, approveRegistration, rejectRegistration, cancelRegistration, addEvent, updateEvent, deleteEvent, switchLanguage }), [events, eventsLoading, eventsError, registrationsError, savedIds, registrations, reviews, language, user, isOrganizer]);
+  const value = useMemo(() => ({ events, eventsLoading, eventsError, loadEvents, registrationsError, savedIds, registrations, reviews, rateEvent, updateRegistrationLocally, markNotificationSent, language, toggleSaved, register, submitPaymentReference, approveRegistration, rejectRegistration, cancelRegistration, addEvent, updateEvent, deleteEvent, switchLanguage }), [events, eventsLoading, eventsError, registrationsError, savedIds, registrations, reviews, language, user, isOrganizer]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 export const useApp = () => useContext(AppContext);
