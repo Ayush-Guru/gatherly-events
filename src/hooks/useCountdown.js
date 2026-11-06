@@ -14,6 +14,7 @@ const calculate = (target) => {
 export function useCountdown(target) {
   const [time, setTime] = useState(() => calculate(target));
   useEffect(() => {
+    setTime(calculate(target));
     const timer = window.setInterval(() => setTime(calculate(target)), 1000);
     return () => window.clearInterval(timer);
   }, [target]);
