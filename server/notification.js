@@ -22,6 +22,7 @@ export async function sendRegistrationEmail(request, response, kind) {
     if (error) return response.status(500).json({ error: 'Could not load registration.' });
     if (!registration || (['request', 'receipt'].includes(kind) && registration.user_id !== auth.user.id) || (kind === 'status' && registration.user_id === auth.user.id)) return response.status(404).json({ error: 'Registration not found.' });
     if (['request', 'receipt'].includes(kind) && registration.status !== 'Pending' || kind === 'status' && !['Confirmed', 'Rejected'].includes(registration.status)) return response.status(409).json({ error: 'Registration status does not match notification.' });
+    if (registration.transaction_id === 'AWAITING-UPI') return response.status(409).json({ error: 'Payment reference has not been submitted.' });
     const column = kind === 'request' ? 'request_email_sent_at' : kind === 'receipt' ? 'receipt_email_sent_at' : 'status_email_sent_at';
     const claimedAt = new Date().toISOString();
     const { data: claimed, error: claimError } = await db.from('registrations').update({ [column]: claimedAt }).eq('id', reference).eq('status', registration.status).is(column, null).select('id').maybeSingle();

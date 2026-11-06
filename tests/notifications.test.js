@@ -69,3 +69,14 @@ test('receipt is sent only to the owner and uses the stored email', async () => 
     const email = JSON.parse(calls.find((c) => c.url.includes('api.resend.com')).options.body); assert.deepEqual(email.to, ['alice@example.com']); assert.match(email.subject, /Request received/);
   } finally { globalThis.fetch = original; }
 });
+
+test('unpaid holds do not send payment-review or receipt notifications', async () => {
+  Object.assign(process.env, env); const original = globalThis.fetch;
+  try {
+    const calls = mockFetch({ record: { ...registration, transaction_id: 'AWAITING-UPI' } });
+    for (const handler of [requestHandler, receiptHandler]) {
+      const res = response(); await handler(req(), res); assert.equal(res.code, 409);
+    }
+    assert.equal(calls.some((c) => c.url.includes('api.resend.com')), false);
+  } finally { globalThis.fetch = original; }
+});
