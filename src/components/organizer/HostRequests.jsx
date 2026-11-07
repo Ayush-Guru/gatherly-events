@@ -35,11 +35,11 @@ export default function HostRequests() {
       if (reviewError) throw reviewError;
       setRequests((current) => current.map((item) => item.id === request.id ? { ...item, ...data } : item));
       toast.success(`Request ${decision.toLowerCase()}. Contact the host to follow up.`);
-      try { await sendStatus(request); } catch { toast.error('Review saved, but host email failed. Retry below.'); }
+      try { await sendStatus(request); } catch (err) { toast.error(`Review saved. ${err.message}`, { duration: 8000 }); }
     } catch (err) { toast.error(err.message || 'Could not review the request.'); }
     finally { setBusy(null); }
   };
-  const retry = async (request) => { setBusy(request.id); try { await sendStatus(request); toast.success('Host notification sent.'); } catch { toast.error('Could not send email. Check email configuration and try again.'); } finally { setBusy(null); } };
+  const retry = async (request) => { setBusy(request.id); try { await sendStatus(request); toast.success('Host notification sent.'); } catch (err) { toast.error(err.message || 'Could not send email. Try again.', { duration: 8000 }); } finally { setBusy(null); } };
   const publish = async (event) => {
     event.preventDefault(); setBusy(publishing.id);
     try {

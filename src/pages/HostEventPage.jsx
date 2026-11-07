@@ -29,7 +29,7 @@ export default function HostEventPage() {
   const retryNotification = async (request) => {
     setBusy(true); setNotice('');
     try { await sendNotification('send-host-request', request.id, session.access_token); setRequests((current) => current.map((item) => item.id === request.id ? { ...item, notify_email_sent_at: new Date().toISOString() } : item)); setNotice('Organizer notification sent.'); }
-    catch { setNotice('Could not send the notification or it was already sent. Your request remains visible in Organizer Studio.'); }
+    catch (err) { setNotice(`${err.message} Your request remains visible in Organizer Studio.`); }
     finally { setBusy(false); }
   };
   const submit = async (event) => {
@@ -46,7 +46,7 @@ export default function HostEventPage() {
       setRequests((current) => [data, ...current]); setForm(initial);
       setNotice('Request submitted! The Gatherly team will review it. Check its status below. Approval does not automatically publish the event.');
       try { await sendNotification('send-host-request', data.id, session.access_token); setRequests((current) => current.map((item) => item.id === data.id ? { ...item, notify_email_sent_at: new Date().toISOString() } : item)); }
-      catch { setNotice('Request submitted and visible in Organizer Studio, but the email notification failed. You may also contact the organizer.'); }
+      catch (err) { setNotice(`Request submitted and visible in Organizer Studio. ${err.message}`); }
     } catch (err) { setError(err.message || 'Could not submit the request. Please try again.'); }
     finally { setBusy(false); }
   };
