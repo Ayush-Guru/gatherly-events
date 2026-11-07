@@ -7,12 +7,12 @@ const env = { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE
 const host = { id: '01999999-1111-4111-8111-111111111111', user_id: 'owner', status: 'Pending', title: '<b>Art</b>', category: 'Culture', event_date: '2027-12-31T10:00:00Z', venue: 'Town Hall', city: 'Pune', contact_name: 'A User', contact_email: 'user@example.com', contact_phone: '1234567890', details: '<script>bad</script>' };
 const response = () => ({ status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } });
 const req = () => ({ method: 'POST', headers: { authorization: 'Bearer user-token' }, body: { reference: host.id, to: 'attacker@example.com' } });
-function mockFetch({ user = 'owner', role = 'attendee', record = host, claim = true, failMail = false, providerStatus = 200, mailThrows = false, releaseFails = false } = {}) {
+function mockFetch({ user = 'owner', role = 'attendee', record = host, claim = true, failMail = false, providerStatus = 200, mailThrows = false, releaseFails = false, authStatus = 200, authMessage = "bad session", authThrows = false } = {}) {
   const calls = [];
   globalThis.fetch = async (input, options = {}) => {
     const url = String(input); calls.push({ url, options });
     let body;
-    if (url.includes('/auth/v1/user')) body = { id: user };
+    if (url.includes('/auth/v1/user')) { if (authThrows) throw new Error('PRIVATE auth error'); if (authStatus !== 200) return new Response(JSON.stringify({ message: authMessage }), { status: authStatus, headers: { 'Content-Type': 'application/json' } }); body = { id: user }; }
     else if (url.includes('/rest/v1/profiles')) body = [{ role }];
     else if (url.includes('/rest/v1/event_host_requests') && options.method === 'PATCH') { if (releaseFails && JSON.parse(options.body).status_email_sent_at === null) return new Response(JSON.stringify({ message: 'test error' }), { status: 500, headers: { 'Content-Type': 'application/json' } }); body = claim ? { id: host.id } : null; }
     else if (url.includes('/rest/v1/event_host_requests')) body = record ? [record] : [];
@@ -65,5 +65,25 @@ test('host status email failures return safe, useful categories and release the 
     let res = response(); await statusHandler(req(), res); assert.equal(res.body.code, 'EMAIL_DELIVERY_UNKNOWN');
     mockFetch({ user: 'organizer', role: 'organizer', record: { ...host, status: 'Approved' }, providerStatus: 403, releaseFails: true });
     res = response(); await statusHandler(req(), res); assert.equal(res.body.code, 'EMAIL_RETRY_STATE_UNKNOWN');
+  } finally { globalThis.fetch = original; }
+});
+
+
+test('auth failures are categorized without exposing secrets or sending mail', async () => {
+  Object.assign(process.env, env); const original = globalThis.fetch;
+  try {
+    for (const [options, status, code] of [
+      [{ authStatus: 401, authMessage: 'Invalid API key' }, 503, 'AUTH_SERVER_CONFIG'],
+      [{ authStatus: 401, authMessage: 'PRIVATE invalid token' }, 401, 'AUTH_SESSION_UNVERIFIED'],
+      [{ authStatus: 500, authMessage: 'PRIVATE server issue' }, 503, 'AUTH_SERVICE_UNAVAILABLE'],
+      [{ authThrows: true }, 503, 'AUTH_SERVICE_UNAVAILABLE'],
+    ]) {
+      const calls = mockFetch({ user: 'organizer', role: 'organizer', record: { ...host, status: 'Approved' }, ...options });
+      const res = response(); await statusHandler(req(), res);
+      assert.equal(res.code, status); assert.equal(res.body.code, code);
+      assert.doesNotMatch(JSON.stringify(res.body), /PRIVATE/);
+      assert.equal(calls.some((c) => c.url.includes('api.resend.com')), false);
+      assert.equal(calls.some((c) => c.options.method === 'PATCH'), false);
+    }
   } finally { globalThis.fetch = original; }
 });

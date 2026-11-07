@@ -1,5 +1,8 @@
 // Only display predefined, non-sensitive error categories from our own API.
 const messages = {
+  AUTH_SERVER_CONFIG: 'The server authentication configuration was rejected. Check the Supabase server credentials.',
+  AUTH_SERVICE_UNAVAILABLE: 'Could not reach the authentication service. Please try again later.',
+  AUTH_SESSION_UNVERIFIED: 'Could not verify your sign-in. If signing in again does not help, check the server Supabase configuration.',
   EMAIL_NOT_CONFIGURED: 'Email service is not configured. Check server settings.',
   EMAIL_PROVIDER_AUTH: 'Email provider rejected the API key. Check the server configuration.',
   EMAIL_PROVIDER_FORBIDDEN: 'Email provider refused the request. Check sender domain verification, API key permissions and recipient restrictions.',
@@ -30,4 +33,14 @@ export async function sendNotification(endpoint, reference, token) {
   if (response.status === 403) throw new Error('Organizer access is required to send this email.');
   if (response.status === 409) throw new Error('The notification was already sent or the request changed. Refresh to check.');
   throw new Error('Email notification could not be sent. Check server configuration and try again.');
+}
+
+// Read the current Supabase session at send time; getSession refreshes expired tokens.
+export async function getNotificationToken(supabase) {
+  if (!supabase) throw new Error('Sign-in service is not configured.');
+  let result;
+  try { result = await supabase.auth.getSession(); }
+  catch { throw new Error('Could not get your current session. Please sign in again.'); }
+  if (result.error || !result.data?.session?.access_token) throw new Error('Could not get your current session. Please sign in again.');
+  return result.data.session.access_token;
 }

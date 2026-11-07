@@ -4,12 +4,12 @@ import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import { sendNotification } from '../../lib/notifications';
+import { getNotificationToken, sendNotification } from '../../lib/notifications';
 import Modal from '../ui/Modal';
 
 const defaultImage = 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=85';
 export default function HostRequests() {
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const { loadEvents } = useApp();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,8 @@ export default function HostRequests() {
   };
   useEffect(() => { load(); }, []);
   const sendStatus = async (request) => {
-    await sendNotification('send-host-status-email', request.id, session.access_token);
+    const token = await getNotificationToken(supabase);
+    await sendNotification('send-host-status-email', request.id, token);
     setRequests((current) => current.map((item) => item.id === request.id ? { ...item, status_email_sent_at: new Date().toISOString() } : item));
   };
   const review = async (request, decision) => {
