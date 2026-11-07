@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sendNotification } from '../src/lib/notifications.js';
+import { getNotificationToken, sendNotification } from '../src/lib/notifications.js';
 
 test('notification client displays only safe diagnostic categories', async () => {
   const original = globalThis.fetch;
@@ -16,4 +16,15 @@ test('notification client displays only safe diagnostic categories', async () =>
     globalThis.fetch = async () => { throw new Error('secret network message'); };
     await assert.rejects(sendNotification('send-host-status-email', 'reference', 'token'), (error) => !error.message.includes('secret') && /Could not reach/.test(error.message));
   } finally { globalThis.fetch = original; }
+});
+
+
+test('notification token is obtained from the current session at send time', async () => {
+  let calls = 0;
+  const client = { auth: { getSession: async () => ({ data: { session: { access_token: `fresh-${++calls}` } }, error: null }) } };
+  assert.equal(await getNotificationToken(client), 'fresh-1');
+  assert.equal(await getNotificationToken(client), 'fresh-2');
+  await assert.rejects(getNotificationToken({ auth: { getSession: async () => ({ data: { session: null }, error: null }) } }), /sign in again/i);
+  await assert.rejects(getNotificationToken({ auth: { getSession: async () => ({ data: {}, error: new Error('secret') }) } }), (error) => !error.message.includes('secret'));
+  await assert.rejects(getNotificationToken({ auth: { getSession: async () => { throw new Error('secret'); } } }), (error) => !error.message.includes('secret'));
 });

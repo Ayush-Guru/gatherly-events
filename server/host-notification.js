@@ -13,7 +13,17 @@ export async function sendHostRequest(request, response, kind = 'request') {
   try {
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: auth, error: authError } = await db.auth.getUser(token);
-    if (authError || !auth.user) return response.status(401).json({ error: 'Invalid session.' });
+    if (authError) {
+      // Never return raw authentication errors, which may contain sensitive details.
+      if (authError.code === 'invalid_api_key' || /^invalid api key\.?$/i.test(authError.message || '')) {
+        return response.status(503).json({ error: 'Authentication service configuration rejected.', code: 'AUTH_SERVER_CONFIG' });
+      }
+      if (authError.status === 0 || authError.status >= 500) {
+        return response.status(503).json({ error: 'Authentication service unavailable.', code: 'AUTH_SERVICE_UNAVAILABLE' });
+      }
+      return response.status(401).json({ error: 'Could not verify session.', code: 'AUTH_SESSION_UNVERIFIED' });
+    }
+    if (!auth?.user) return response.status(401).json({ error: 'Could not verify session.', code: 'AUTH_SESSION_UNVERIFIED' });
     if (kind === 'status') {
       const { data: profile, error: profileError } = await db.from('profiles').select('role').eq('id', auth.user.id).maybeSingle();
       if (profileError || !['organizer', 'admin'].includes(profile?.role)) return response.status(403).json({ error: 'Organizer access required.' });
