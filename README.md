@@ -6,7 +6,7 @@ Gatherly is a responsive event management website built with React, Vite, Tailwi
 
 ## Technology stack
 
-React, JavaScript, Vite and Tailwind CSS power the frontend. Supabase provides authentication, PostgreSQL and storage; Vercel hosts the site and serverless API functions. Resend is used for configured email notifications.
+React, JavaScript, Vite and Tailwind CSS power the frontend. Supabase provides authentication, PostgreSQL and storage; Vercel hosts the site and serverless API functions. Resend or Gmail SMTP can be used for configured host and registration notifications. Scheduled reminders currently use Resend.
 
 ## Features
 
@@ -75,12 +75,30 @@ VITE_UPI_ID=your-upi-id@bank
 VITE_ORGANIZER_EMAIL=organizer@example.com
 ```
 
-### 3. Resend email notifications
+### 3. Email notifications
 
-1. Create an account at [resend.com](https://resend.com).
-2. Verify the sending domain.
-3. Create an API key.
-4. Add these server-only variables to Vercel (the included `api/` handlers use Vercel-style serverless functions):
+#### Option A: Gmail SMTP (host and registration emails)
+
+For low-volume use, enable 2-Step Verification on the Gmail account and create a Google App Password if available for the account. Set these **server-only** Vercel variables, then redeploy:
+
+```env
+EMAIL_PROVIDER=gmail
+GMAIL_SMTP_USER=your-address@gmail.com
+GMAIL_SMTP_APP_PASSWORD=your-google-app-password
+ORGANIZER_EMAIL=organizer@example.com
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
+```
+
+Never use your normal Google password, send an App Password in chat, commit it, or add a `VITE_` prefix. Gmail availability, limits, spam filtering and delivery depend on Google and account settings. Google may not offer App Passwords for every account. Gmail is used for host and registration emails; scheduled reminders remain on Resend and require its configuration and `CRON_SECRET`. Supabase authentication emails are configured separately in Supabase. SMTP does not provide provider-level idempotency; if delivery is uncertain, check Gmail Sent before retrying to avoid duplicates. An accepted send is not proof of inbox delivery.
+
+#### Option B: Resend
+
+1. Leave `EMAIL_PROVIDER` unset or set it to `resend`.
+2. Create an account at [resend.com](https://resend.com).
+3. Verify the sending domain.
+4. Create an API key.
+5. Add these server-only variables to Vercel (the included `api/` handlers use Vercel-style serverless functions):
 
 ```env
 RESEND_API_KEY=re_...
@@ -134,7 +152,7 @@ A signed-in user selects **Host an event**, submits their contact and event deta
 - The daily Vercel cron in `vercel.json` runs at 03:00 UTC, emails confirmed attendees for events within 48 hours, and processes at most 100 per run. Configure `CRON_SECRET` and the server email variables; monitor cron failures. For higher volume or guaranteed delivery, use a durable job queue. Failed reminder sends can retry on the next run while the event is still upcoming.
 - In local mode without Supabase, event browsing works but registrations, payments, and organizer tools are disabled.
 - Email notifications use the stored registration and require a valid session; organizer status emails additionally require an organizer role. Delivery errors are shown but do not undo an already-saved registration or review.
-- Use a verified Resend domain in production.
+- For Resend production emails, use a verified sender domain. Gmail SMTP is intended for low-volume use and has account-specific limits.
 - Enable Supabase email confirmation in production.
 - Keep `.env.local` out of GitHub; `.gitignore` already excludes it.
 - Never commit the Supabase service-role key.
@@ -148,6 +166,6 @@ node --check api/send-registration-request.js
 node --check api/send-registration-status-email.js
 ```
 
-Automated email tests use mocked Supabase and email providers; the SQL tests use an embedded Postgres with stubbed Supabase auth/storage. Test the SQL migration, authentication, payment review, and email delivery against a separate Supabase project and a verified email domain before production use.
+Automated email tests use mocked Supabase and email providers; the SQL tests use an embedded Postgres with stubbed Supabase auth/storage. Test the SQL migration, authentication, payment review, and email delivery in a controlled end-to-end test before production use. Use a verified domain for Resend, or a configured Gmail App Password for Gmail SMTP.
 
 To test concurrent last-seat reservations against a **disposable local PostgreSQL** cluster, set `GATHERLY_TEST_PG_SOCKET` to its Unix socket directory under `/tmp` and optionally set `GATHERLY_TEST_PG_PORT`, then run `npm test`. The test creates and drops a randomly named database and creates test roles on that cluster; never point it at a shared or production database. Without the socket variable it is skipped. This is still not a Supabase integration test.
