@@ -4,12 +4,14 @@ const messages = {
   AUTH_SERVICE_UNAVAILABLE: 'Could not reach the authentication service. Please try again later.',
   AUTH_SESSION_UNVERIFIED: 'Could not verify your sign-in. If signing in again does not help, check the server Supabase configuration.',
   EMAIL_NOT_CONFIGURED: 'Email service is not configured. Check server settings.',
+  EMAIL_SMTP_AUTH: 'Gmail rejected the login. Check the Gmail address and App Password in server settings.',
+  EMAIL_SMTP_RECIPIENT: 'Gmail rejected the recipient. Check the recipient address.',
   EMAIL_PROVIDER_AUTH: 'Email provider rejected the API key. Check the server configuration.',
   EMAIL_PROVIDER_FORBIDDEN: 'Email provider refused the request. Check sender domain verification, API key permissions and recipient restrictions.',
   EMAIL_PROVIDER_INVALID: 'Email provider rejected the email details. Check the sender and recipient settings.',
   EMAIL_PROVIDER_RATE_LIMIT: 'Email provider rate limit reached. Please try again later.',
   EMAIL_PROVIDER_UNAVAILABLE: 'Email provider could not complete the request. Check the provider dashboard before retrying.',
-  EMAIL_DELIVERY_UNKNOWN: 'Email delivery could not be confirmed. Check the provider dashboard before retrying to avoid duplicates.',
+  EMAIL_DELIVERY_UNKNOWN: 'Email delivery could not be confirmed. Check your Sent folder or provider dashboard before retrying to avoid duplicates.',
   EMAIL_RETRY_STATE_UNKNOWN: 'Email status could not be reset. Check the email provider before retrying to avoid duplicates.',
 };
 

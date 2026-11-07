@@ -1,3 +1,4 @@
+import { emailConfig, sendEmail } from './email.js';
 import { createClient } from '@supabase/supabase-js';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -6,8 +7,9 @@ export async function sendHostRequest(request, response, kind = 'request') {
   if (request.method !== 'POST') return response.status(405).json({ error: 'Method not allowed' });
   const token = /^Bearer\s+(.+)$/i.exec(request.headers?.authorization || '')?.[1];
   if (!token) return response.status(401).json({ error: 'Authentication required.' });
-  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, EMAIL_FROM, ORGANIZER_EMAIL } = process.env;
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !RESEND_API_KEY || !EMAIL_FROM || (kind === 'request' && !ORGANIZER_EMAIL)) return response.status(503).json({ error: 'Email service is not configured.', code: 'EMAIL_NOT_CONFIGURED' });
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ORGANIZER_EMAIL } = process.env;
+  const mailConfig = emailConfig();
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !mailConfig || (kind === 'request' && !ORGANIZER_EMAIL)) return response.status(503).json({ error: 'Email service is not configured.', code: 'EMAIL_NOT_CONFIGURED' });
   const reference = request.body?.reference;
   if (typeof reference !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reference)) return response.status(400).json({ error: 'Invalid request reference.' });
   try {
@@ -37,15 +39,13 @@ export async function sendHostRequest(request, response, kind = 'request') {
     const { data: claimed, error: claimError } = await db.from('event_host_requests').update({ [column]: claimedAt }).eq('id', reference).eq('status', host.status).is(column, null).select('id').maybeSingle();
     if (claimError) return response.status(500).json({ error: 'Could not queue notification.' });
     if (!claimed) return response.status(409).json({ error: 'Notification already sent or request changed.' });
-    let providerStatus = null;
     try {
-      const sent = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(kind === 'request' ? { from: EMAIL_FROM, to: [ORGANIZER_EMAIL], reply_to: host.contact_email, subject: `New event host request: ${host.title}`, html: `<h2>New host request</h2><p><strong>${escapeHtml(host.title)}</strong> · ${escapeHtml(host.category)}</p><p>${escapeHtml(host.event_date)} · ${escapeHtml(host.venue)}, ${escapeHtml(host.city)}</p><p>Contact: ${escapeHtml(host.contact_name)} · ${escapeHtml(host.contact_email)} · ${escapeHtml(host.contact_phone)}</p><p>${escapeHtml(host.details).replace(/\n/g, '<br>')}</p><p>Review this request in Gatherly Organizer Studio.</p>` } : { from: EMAIL_FROM, to: [host.contact_email], subject: `Host request ${host.status}: ${host.title}`, html: `<h2>Update on your host request</h2><p>Hi ${escapeHtml(host.contact_name)}, your request for <strong>${escapeHtml(host.title)}</strong> is <strong>${escapeHtml(host.status)}</strong>.</p><p>${host.status === 'Approved' ? 'Our team will contact you to confirm the event details before publication.' : 'Please contact the organizer if you have questions.'}</p>` }) });
-      if (!sent.ok) { providerStatus = sent.status; throw new Error('Email provider rejected request'); }
+      await sendEmail(mailConfig, kind === 'request' ? { to: [ORGANIZER_EMAIL], reply_to: host.contact_email, subject: `New event host request: ${host.title}`, html: `<h2>New host request</h2><p><strong>${escapeHtml(host.title)}</strong> · ${escapeHtml(host.category)}</p><p>${escapeHtml(host.event_date)} · ${escapeHtml(host.venue)}, ${escapeHtml(host.city)}</p><p>Contact: ${escapeHtml(host.contact_name)} · ${escapeHtml(host.contact_email)} · ${escapeHtml(host.contact_phone)}</p><p>${escapeHtml(host.details).replace(/\n/g, '<br>')}</p><p>Review this request in Gatherly Organizer Studio.</p>` } : { to: [host.contact_email], subject: `Host request ${host.status}: ${host.title}`, html: `<h2>Update on your host request</h2><p>Hi ${escapeHtml(host.contact_name)}, your request for <strong>${escapeHtml(host.title)}</strong> is <strong>${escapeHtml(host.status)}</strong>.</p><p>${host.status === 'Approved' ? 'Our team will contact you to confirm the event details before publication.' : 'Please contact the organizer if you have questions.'}</p>` });
       return response.status(200).json({ ok: true });
-    } catch {
+    } catch (error) {
       const { error: releaseError } = await db.from('event_host_requests').update({ [column]: null }).eq('id', reference).eq(column, claimedAt);
       // Return only a safe category, never the provider response or credentials.
-      const code = releaseError ? 'EMAIL_RETRY_STATE_UNKNOWN' : providerStatus === 401 ? 'EMAIL_PROVIDER_AUTH' : providerStatus === 403 ? 'EMAIL_PROVIDER_FORBIDDEN' : [400, 422].includes(providerStatus) ? 'EMAIL_PROVIDER_INVALID' : providerStatus === 429 ? 'EMAIL_PROVIDER_RATE_LIMIT' : providerStatus === null ? 'EMAIL_DELIVERY_UNKNOWN' : 'EMAIL_PROVIDER_UNAVAILABLE';
+      const code = releaseError ? 'EMAIL_RETRY_STATE_UNKNOWN' : error.safeCode || 'EMAIL_DELIVERY_UNKNOWN';
       return response.status(502).json({ error: 'Email delivery failed.', code });
     }
   } catch { return response.status(500).json({ error: 'Notification failed.' }); }
