@@ -2,6 +2,12 @@
 
 Gatherly is a responsive event management website built with React, Vite, Tailwind CSS, and JavaScript. Users can discover events, save plans, pay through a UPI QR, submit a UTR, and receive confirmation after organizer approval.
 
+**Live website:** https://gatherly-events-sepia.vercel.app
+
+## Technology stack
+
+React, JavaScript, Vite and Tailwind CSS power the frontend. Supabase provides authentication, PostgreSQL and storage; Vercel hosts the site and serverless API functions. Resend is used for configured email notifications.
+
 ## Features
 
 - Responsive homepage with featured and upcoming events
@@ -42,7 +48,7 @@ Open **http://localhost:5173**.
 1. Create a project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor → New query**.
 3. Run [`supabase/schema.sql`](supabase/schema.sql).
-4. Run [`supabase/seed.sql`](supabase/seed.sql).
+4. Optionally run [`supabase/seed.sql`](supabase/seed.sql) **only in a disposable test project** to add demo events. Do not run it on production.
 5. Enable Email under **Authentication → Providers**.
 6. Copy the Project URL and public anon key from **Project Settings → API**.
 7. Under **Authentication → URL Configuration**, add your deployed `https://your-domain.com/reset-password` and (for local testing) `http://localhost:5173/reset-password` to the redirect URL allowlist. Password recovery requires a working Supabase email provider.
@@ -65,8 +71,8 @@ Add the Supabase values and set your actual payment details (examples only; do n
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_UPI_ID=7587704110@fam
-VITE_ORGANIZER_EMAIL=ayushguru16@gmail.com
+VITE_UPI_ID=your-upi-id@bank
+VITE_ORGANIZER_EMAIL=organizer@example.com
 ```
 
 ### 3. Resend email notifications
@@ -79,7 +85,7 @@ VITE_ORGANIZER_EMAIL=ayushguru16@gmail.com
 ```env
 RESEND_API_KEY=re_...
 EMAIL_FROM=Gatherly <hello@your-domain.com>
-ORGANIZER_EMAIL=ayushguru16@gmail.com
+ORGANIZER_EMAIL=organizer@example.com
 APP_URL=https://your-domain.com
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
